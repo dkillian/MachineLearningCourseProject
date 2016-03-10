@@ -1,0 +1,138 @@
+---
+title: "Machine Learning Course Project"
+author: "Dan Killian"
+date: "September 14, 2015"
+output: html_document
+---
+```{r}
+setwd("C:/Users/Dan/Dropbox/personal/Coursera/Data science certificate/Machine learning/course project/")
+
+library(AppliedPredictiveModeling)
+library(caret)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(reshape2)
+library(kernlab)
+library(rattle)
+library(ElemStatLearn)
+library(ISLR)
+library(stargazer)
+
+test <- read.csv("pml-testing.csv")
+train <- read.csv("pml-training.csv")
+trainNames <- data.frame(names(train))
+train[1:5,1:10]
+str(train)
+table(train$classe)
+
+names(train)[1:10]
+
+table(train$classe)
+table(train$user_name)
+
+train2 <- select(train, user_name, roll_belt:classe)
+test2 <- select(test, user_name, roll_belt:problem_id)
+
+tail(names(train))
+tail(names(test))
+```
+Convert factor variables
+```{r}
+train <- apply(train[,12:17],2,as.numeric(as.character))
+
+train$kurtosis_roll_belt <- as.numeric(as.character(train$kurtosis_roll_belt))
+
+```
+
+Let's try PCA. 
+
+```{r}
+procPCA <- preProcess(train[,8:159], method="pca", thresh=.8)
+str(procPCA)
+
+classe <- predict(procPCA, newdata=test[,8:159])
+                  
+
+
+procModFit <- train(classe~., method="rpart", data=)
+
+```
+
+Tree
+
+```{r cache=TRUE}
+
+modFit <- train(classe ~. , method="rpart", data=train2)
+print(modFit$finalModel)
+names(modFit)
+
+plot(modFit$finalModel, uniform=T, main="Classification Tree")
+text(modFit$finalModel, use.n=TRUE, all=TRUE, cex=.8)
+
+fancyRpartPlot(modFit$finalModel)
+
+confusionMatrix(t$classe, predict(modFit, newdata=test))
+?confusionMatrix
+
+res <- predict(modFit, newdata=test)
+?predict
+
+predictions <- predict(modelFit, newdata=testing)
+predictions
+
+
+```
+
+
+```{r}
+
+modFit2 <- train(classe ~. , method="rpart", data=train2)
+print(modFit2$finalModel)
+names(modFit2)
+
+plot(modFit2$finalModel, uniform=T, main="Classification Tree")
+text(modFit2$finalModel, use.n=TRUE, all=TRUE, cex=.8)
+
+fancyRpartPlot(modFit2$finalModel)
+
+confusionMatrix(t$classe, predict(modFit, newdata=test))
+?confusionMatrix
+
+res <- predict(modFit2, newdata=test2)
+
+?predict
+
+predictions <- predict(modelFit, newdata=testing)
+predictions
+
+```
+
+Random forest
+
+```{r}
+
+modFit <- train(classe~., data=train2, method="rf", prox=T)
+modFit
+
+getTree(modFit$finalModel, k=2)
+
+pred <- predict(modFit, test)
+test$predRight <- pred==test$Species
+table(pred, test$Species)
+
+
+
+classeP <- classCenter(train2[,c(3,4)], train2$classe, modFit$finalModel$prox)
+classeP <- as.data.frame(classeP)
+classeP$classe <- rownames(classeP)
+classeP
+
+p <- qplot(Petal.Width, Petal.Length, col=Species, data=train)
+
+p + geom_point(aes(x=Petal.Width, y=Petal.Length, col=Species), size=5, shape=4, data=irisP)
+
+
+pred <- predict(modFit, test)
+test$predRight <- pred==test$Species
+table(pred, test$Species)
