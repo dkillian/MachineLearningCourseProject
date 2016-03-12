@@ -1,0 +1,222 @@
+---
+title: "Machine Learning Course Project"
+author: "Dan Killian"
+date: "September 14, 2015"
+output: html_document
+---
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict what type of movement they are performing. This report will describe how we built our model(s), how we used cross validation, the expected out of sample error, and why we made the choices we did. Our model will then be used to predict 20 different test cases.
+
+```{r message=F, warning=F, echo=F}
+
+setwd("C:/Users/Dan/Dropbox/personal/Coursera/Data science certificate/Machine learning/MachineLearningCourseProject/")
+setwd("C:/Users/dkillian/Dropbox/personal/Coursera/Data science certificate/Machine learning/MachineLearningCourseProject/")
+
+
+library(AppliedPredictiveModeling)
+library(psych)
+library(DescTools)
+library(caret)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(reshape2)
+library(kernlab)
+library(rattle)
+library(ElemStatLearn)
+library(ISLR)
+library(stargazer)
+
+options(digits=3, scipen=6)
+
+theme_set(theme_bw() + theme(panel.grid.major.x=element_blank(),
+                             panel.grid.minor.x=element_blank(),
+                             panel.grid.major.y=element_blank(),
+                             plot.title=element_text(face="bold", size=18)) + 
+               theme(axis.title=element_text(size=16)) + 
+               theme(axis.text=element_text(size=14)))
+
+```
+
+Read in and examine the data
+
+```{r}
+
+test <- read.csv("pml-testing.csv")
+train <- read.csv("pml-training.csv")
+
+test <- test[,2:159]
+names(test)
+
+train <- train[,2:160]
+train <- select(train, classe, everything())
+train[1:5,1:5]
+names(train)
+names(train)[2:159]==names(test)
+
+```
+
+The "classe" variable is the type of movement that is being performed. 
+
+```{r}
+
+Desc(train$classe, plotit=T)
+
+```
+
+There are five classes of movement. Movement A is most frequent at nearly 30 percent, while movements B-E range from 16-20 percent. 
+
+Additional visual inspection of the data reveals a lot of variables with missing values. Let's remove variables with many missing values. 
+
+```{r}
+
+train <- select(train, classe:total_accel_belt, gyros_belt_x:total_accel_arm, gyros_arm_x:magnet_arm_z, roll_dumbbell:yaw_dumbbell)
+
+test <- select(test, user_name:total_accel_belt, gyros_belt_x:total_accel_arm, gyros_arm_x:magnet_arm_z, roll_dumbbell:yaw_dumbbell)
+
+```
+
+We pared down to a much more manageable 35 predictor variables. Now let's train a prediction model. We'll start with a single tree. 
+
+
+```{r cache=TRUE}
+
+train1 <- sample_n(train, 5000)
+train2 <- sample_n(train, 5000)
+train3 <- sample_n(train, 5000)
+train4 <- sample_n(train, 5000)
+train5 <- sample_n(train, 5000)
+
+treeFit1 <- train(classe~., method="rpart", data=train1)
+treeFit1
+PredtreeFit1 <- data.frame(tree1=predict(treeFit1, test))
+
+predict(modFit5, test)
+
+ldaFit2 <- train(classe~., method="lda", data=train2)
+ldaFit2
+PredldaFit2 <- data.frame(lda2=predict(ldaFit2, test))
+PredldaFit2
+
+nbFit3 <- train(classe~., method="nb", data=train3)
+nbFit3
+PrednbFit3 <- data.frame(nb3=predict(nbFit3, test))
+PrednbFit3
+
+rfFit4 <- train(classe~., method="rf", data=train4)
+
+treeFit <- train(classe~., method="rpart", data=train)
+treeFit
+PredtreeFit <- data.frame(tree=predict(treeFit, test))
+PredtreeFit
+
+# LDA had best accuracy but not exceeding 80%. Let's try pre-processing. 
+
+ldaFit4 <- train(classe~., method="lda", preProcess="pca", data=train4)
+ldaFit4
+
+ldaFit <- train(classe~., method="lda", data=train)
+ldaFit
+PredldaFit <- data.frame(lda=predict(ldaFit, test))
+PredldaFit
+
+ldaFitPCA <- train(classe~., method="lda", preProcess="pca", data=train)
+ldaFitPCA
+PredldaFitPCA <- data.frame(ldapca=predict(ldaFitPCA, test))
+PredldaFitPCA
+
+res <- cbind(PredtreeFit, PredtreeFit1, PredldaFit2, PrednbFit3, PredldaFit, PredldaFitPCA)
+
+write.csv(res, "Prediction results.csv", row.names=F)
+
+
+rfFit <- train(classe~., method="rf", data=train)
+
+lda5 <- 
+
+
+modFit <- train(classe ~. , method="rf", data=train)
+print(modFit$finalModel)
+names(modFit)
+modFit
+
+fancyRpartPlot(modFit$finalModel)
+
+```
+
+Unfortunately, the tree only has a 49% accuracy even on the training data. This is not good enough. Let's see if we can pare down our data by identifying only the most important variablesl for prediction. 
+
+```{r cach=T}
+
+varImp(modFit)
+plot(varImp(modFit), top=10)
+
+trainTrunc <- select(train, classe, stddev_roll_belt, var_roll_belt, var_total_accel_belt, avg_roll_belt, amplitude_pitch_belt, var_accel_dumbbell, min_roll_forearm, avg_pitch_forearm, avg_roll_dumbbell, amplitude_yaw_arm)
+
+test2Trunc <- select(test, stddev_roll_belt, var_roll_belt, var_total_accel_belt, avg_roll_belt, amplitude_pitch_belt, var_accel_dumbbell, min_roll_forearm, avg_pitch_forearm, avg_roll_dumbbell, amplitude_yaw_arm)
+
+```
+
+Now that we have a pared down dataset, let's try a random forest model. 
+
+```{r}
+
+rfFit <- train(classe~., method="rf", data=train2)
+rfFit
+
+getTree(rfFit$finalModel)
+
+confusionMatrix(train$classe, predict(modFit, newdata=test))
+?confusionMatrix
+
+test2 <- test[,1:152]
+
+predict(rfFit, test2)
+
+str(train2)
+str(test2)
+
+test2[,1] <- as.numeric(test2[,1])
+test2[,2] <- as.numeric(test2[,2])
+test2[,3] <- as.numeric(test2[,3])
+test2[,4] <- as.numeric(test2[,4])
+test2[,5] <- as.integer(test2[,5])
+test2[,6] <- as.numeric(test2[,6])
+test2[,7] <- as.numeric(test2[,7])
+test2[,8] <- as.numeric(test2[,8])
+test2[,9] <- as.numeric(test2[,9])
+test2[,10] <- as.integer(test2[,10])
+
+
+
+describe(train)
+mean(is.na(train[,100]))
+
+
+
+
+
+
+for i in 1:length(train) {
+     mean(is.na[i])
+}
+
+
+?predict
+
+predictions <- predict(modelFit, newdata=testing)
+predictions
+
+
+```
+
+Principal Components Analysis
+
+```{r}
+
+trainPC <- 
+     
+modFit2 <- train(train$classe~., method="glm", preProcess="pca", data=train)
+
+
+

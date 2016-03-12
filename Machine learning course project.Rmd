@@ -1,13 +1,19 @@
 ---
 title: "Machine Learning Course Project"
 author: "Dan Killian"
-date: "September 14, 2015"
+date: "March 11, 2016"
 output: html_document
 ---
-```{r}
-setwd("C:/Users/Dan/Dropbox/personal/Coursera/Data science certificate/Machine learning/course project/")
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict what type of movement they are performing. This report will describe how we built our model(s), how we used cross validation, the expected out of sample error, and why we made the choices we did. Our model will then be used to predict 20 different test cases.
+
+```{r message=F, warning=F, echo=F}
+
+setwd("C:/Users/Dan/Dropbox/personal/Coursera/Data science certificate/Machine learning/MachineLearningCourseProject/")
 
 library(AppliedPredictiveModeling)
+library(psych)
+library(DescTools)
 library(caret)
 library(dplyr)
 library(tidyr)
@@ -19,120 +25,65 @@ library(ElemStatLearn)
 library(ISLR)
 library(stargazer)
 
+options(digits=3, scipen=6)
+
+theme_set(theme_bw() + theme(panel.grid.major.x=element_blank(),
+                             panel.grid.minor.x=element_blank(),
+                             panel.grid.major.y=element_blank(),
+                             plot.title=element_text(face="bold", size=18)) + 
+               theme(axis.title=element_text(size=16)) + 
+               theme(axis.text=element_text(size=14)))
+
+```
+
+Read in and examine the data
+
+```{r}
+
 test <- read.csv("pml-testing.csv")
 train <- read.csv("pml-training.csv")
-trainNames <- data.frame(names(train))
-train[1:5,1:10]
-str(train)
-table(train$classe)
 
-names(train)[1:10]
+test <- test[,2:159]
+names(test)
 
-table(train$classe)
-table(train$user_name)
-
-train2 <- select(train, user_name, roll_belt:classe)
-test2 <- select(test, user_name, roll_belt:problem_id)
-
-tail(names(train))
-tail(names(test))
-```
-Convert factor variables
-```{r}
-train <- apply(train[,12:17],2,as.numeric(as.character))
-
-train$kurtosis_roll_belt <- as.numeric(as.character(train$kurtosis_roll_belt))
+train <- train[,2:160]
+train <- select(train, classe, everything())
+train[1:5,1:5]
+names(train)
+names(train)[2:159]==names(test)
 
 ```
 
-Let's try PCA. 
-
-```{r}
-procPCA <- preProcess(train[,8:159], method="pca", thresh=.8)
-str(procPCA)
-
-classe <- predict(procPCA, newdata=test[,8:159])
-                  
-
-
-procModFit <- train(classe~., method="rpart", data=)
-
-```
-
-Tree
-
-```{r cache=TRUE}
-
-modFit <- train(classe ~. , method="rpart", data=train2)
-print(modFit$finalModel)
-names(modFit)
-
-plot(modFit$finalModel, uniform=T, main="Classification Tree")
-text(modFit$finalModel, use.n=TRUE, all=TRUE, cex=.8)
-
-fancyRpartPlot(modFit$finalModel)
-
-confusionMatrix(t$classe, predict(modFit, newdata=test))
-?confusionMatrix
-
-res <- predict(modFit, newdata=test)
-?predict
-
-predictions <- predict(modelFit, newdata=testing)
-predictions
-
-
-```
-
+The "classe" variable is the type of movement that is being performed. 
 
 ```{r}
 
-modFit2 <- train(classe ~. , method="rpart", data=train2)
-print(modFit2$finalModel)
-names(modFit2)
-
-plot(modFit2$finalModel, uniform=T, main="Classification Tree")
-text(modFit2$finalModel, use.n=TRUE, all=TRUE, cex=.8)
-
-fancyRpartPlot(modFit2$finalModel)
-
-confusionMatrix(t$classe, predict(modFit, newdata=test))
-?confusionMatrix
-
-res <- predict(modFit2, newdata=test2)
-
-?predict
-
-predictions <- predict(modelFit, newdata=testing)
-predictions
+Desc(train$classe, plotit=T)
 
 ```
 
-Random forest
+There are five classes of movement. Movement A is most frequent at nearly 30 percent, while movements B-E range from 16-20 percent. 
+
+Additional visual inspection of the data reveals a lot of variables with missing values. Let's remove variables with many missing values. 
 
 ```{r}
 
-modFit <- train(classe~., data=train2, method="rf", prox=T)
-modFit
+train <- select(train, classe:total_accel_belt, gyros_belt_x:total_accel_arm, gyros_arm_x:magnet_arm_z, roll_dumbbell:yaw_dumbbell)
 
-getTree(modFit$finalModel, k=2)
+test <- select(test, user_name:total_accel_belt, gyros_belt_x:total_accel_arm, gyros_arm_x:magnet_arm_z, roll_dumbbell:yaw_dumbbell)
 
-pred <- predict(modFit, test)
-test$predRight <- pred==test$Species
-table(pred, test$Species)
+```
 
+We pared down to a much more manageable 35 predictor variables. Now let's train a linear discriminant analysis prediction model. 
 
 
-classeP <- classCenter(train2[,c(3,4)], train2$classe, modFit$finalModel$prox)
-classeP <- as.data.frame(classeP)
-classeP$classe <- rownames(classeP)
-classeP
+```{r cache=TRUE, message=F, warning=F, echo=F}
 
-p <- qplot(Petal.Width, Petal.Length, col=Species, data=train)
+ldaFit <- train(classe~., method="lda", data=train)
+ldaFit
 
-p + geom_point(aes(x=Petal.Width, y=Petal.Length, col=Species), size=5, shape=4, data=irisP)
+```
+
+79% in-sample accuracy. When I predicted the 20 test cases in the quiz portion, I got an out-of-sample accuracy of 85%, go figure. 
 
 
-pred <- predict(modFit, test)
-test$predRight <- pred==test$Species
-table(pred, test$Species)
