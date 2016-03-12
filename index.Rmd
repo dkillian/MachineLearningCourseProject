@@ -1,0 +1,89 @@
+---
+title: "Machine Learning Course Project"
+author: "Dan Killian"
+date: "March 11, 2016"
+output: html_document
+---
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict what type of movement they are performing. This report will describe how we built our model(s), how we used cross validation, the expected out of sample error, and why we made the choices we did. Our model will then be used to predict 20 different test cases.
+
+```{r message=F, warning=F, echo=F}
+
+setwd("C:/Users/Dan/Dropbox/personal/Coursera/Data science certificate/Machine learning/MachineLearningCourseProject/")
+
+library(AppliedPredictiveModeling)
+library(psych)
+library(DescTools)
+library(caret)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(reshape2)
+library(kernlab)
+library(rattle)
+library(ElemStatLearn)
+library(ISLR)
+library(stargazer)
+
+options(digits=3, scipen=6)
+
+theme_set(theme_bw() + theme(panel.grid.major.x=element_blank(),
+                             panel.grid.minor.x=element_blank(),
+                             panel.grid.major.y=element_blank(),
+                             plot.title=element_text(face="bold", size=18)) + 
+               theme(axis.title=element_text(size=16)) + 
+               theme(axis.text=element_text(size=14)))
+
+```
+
+Read in and examine the data
+
+```{r}
+
+test <- read.csv("pml-testing.csv")
+train <- read.csv("pml-training.csv")
+
+test <- test[,2:159]
+names(test)
+
+train <- train[,2:160]
+train <- select(train, classe, everything())
+train[1:5,1:5]
+names(train)
+names(train)[2:159]==names(test)
+
+```
+
+The "classe" variable is the type of movement that is being performed. 
+
+```{r}
+
+Desc(train$classe, plotit=T)
+
+```
+
+There are five classes of movement. Movement A is most frequent at nearly 30 percent, while movements B-E range from 16-20 percent. 
+
+Additional visual inspection of the data reveals a lot of variables with missing values. Let's remove variables with many missing values. 
+
+```{r}
+
+train <- select(train, classe:total_accel_belt, gyros_belt_x:total_accel_arm, gyros_arm_x:magnet_arm_z, roll_dumbbell:yaw_dumbbell)
+
+test <- select(test, user_name:total_accel_belt, gyros_belt_x:total_accel_arm, gyros_arm_x:magnet_arm_z, roll_dumbbell:yaw_dumbbell)
+
+```
+
+We pared down to a much more manageable 35 predictor variables. Now let's train a linear discriminant analysis prediction model. 
+
+
+```{r cache=TRUE, message=F, warning=F, echo=F}
+
+ldaFit <- train(classe~., method="lda", data=train)
+ldaFit
+
+```
+
+79% in-sample accuracy. When I predicted the 20 test cases in the quiz portion, I got an out-of-sample accuracy of 85%, go figure. 
+
+
